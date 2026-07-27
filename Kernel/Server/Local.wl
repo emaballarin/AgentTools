@@ -11,6 +11,13 @@ Needs[ "Wolfram`Chatbook`" -> "cb`" ];
 
 (* ::**************************************************************************************************************:: *)
 (* ::Section::Closed:: *)
+(*Configuration*)
+$parentMonitorInterval = 2; (* seconds between parent-process liveness checks *)
+$initialParentPID      = None;
+$parentMonitorTask     = None;
+
+(* ::**************************************************************************************************************:: *)
+(* ::Section::Closed:: *)
 (*StartMCPServer*)
 StartMCPServer // beginDefinition;
 StartMCPServer[ ] := stealthCatchTop @ StartMCPServer @ Environment[ "MCP_SERVER_NAME" ];
@@ -58,6 +65,9 @@ startMCPServer[ obj0_MCPServerObject ] := Enclose[
            tables, UI resources, tool options); $currentMCPServer may be reassigned within. *)
         state = ConfirmBy[ initializeServerState @ obj0, AssociationQ, "InitializeServerState" ];
 
+        (* Catch a client that dies without closing stdin (see startParentMonitor): *)
+        startParentMonitor[ ];
+
         Block[
             {
                 $toolList     = state[ "ToolList" ],
@@ -68,13 +78,6 @@ startMCPServer[ obj0_MCPServerObject ] := Enclose[
                 $toolOptions  = state[ "ToolOptions" ]
             },
             While[ True,
-                If[
-                    And[
-                        Or[ $OperatingSystem === "MacOSX", $OperatingSystem === "Unix" ],
-                        $ParentProcessID === 1
-                    ],
-                    Exit[0]
-                ];
                 response = catchAlways @ processRequest[ ];
                 If[ response =!= EndOfFile, writeLog[ "Response" -> response ] ];
                 If[ AssociationQ @ response,
@@ -96,6 +99,48 @@ startMCPServer[ obj0_MCPServerObject ] := Enclose[
 (* :!CodeAnalysis::EndBlock:: *)
 
 startMCPServer // endDefinition;
+
+(* ::**************************************************************************************************************:: *)
+(* ::Subsubsection::Closed:: *)
+(*startParentMonitor*)
+(* Closing the server's stdin is the stdio transport's shutdown signal, and stdinShutdownQ turns
+   that into a clean exit. It covers both client exit and client death, since either closes the
+   client's end of the pipe. It does not cover a client that dies while some other process still
+   holds the write end open: stdin never reaches EndOfFile and the kernel blocks in InputString
+   indefinitely, which is the orphaned-kernel case this monitor exists to catch.
+
+   Polling from the read loop cannot catch it, because the loop is parked inside that blocking
+   read and never comes back around. A SessionSubmit'ed ScheduledTask can: scheduled tasks do
+   preempt a blocking InputString.
+
+   How the task then terminates the process was settled by measurement, not assumption. With the
+   main loop blocked in InputString, neither Exit nor Quit ends the kernel -- both only unschedule
+   the task and leave the process running. SIGTERM is caught and ignored, and the task just goes
+   on firing every interval. SIGKILL to our own $ProcessID is the one thing that works, so that is
+   what is used here. Skipping cleanup costs nothing, since this path is reached only once the
+   client is already gone.
+
+   The predicate compares against the parent recorded at startup instead of testing for PID 1.
+   Reparenting to PID 1 only happens where init is the sole reaper; under a Linux systemd user
+   session an orphan is reparented to `systemd --user`, so a `=== 1` test never fires there. *)
+startParentMonitor // beginDefinition;
+
+(* :!CodeAnalysis::BeginBlock:: *)
+(* :!CodeAnalysis::Disable::SuspiciousSessionSymbol:: *)
+startParentMonitor[ ] :=
+    If[ Or[ $OperatingSystem === "MacOSX", $OperatingSystem === "Unix" ],
+        $initialParentPID  = $ParentProcessID;
+        $parentMonitorTask = SessionSubmit @ ScheduledTask[
+            If[ $ParentProcessID =!= $initialParentPID,
+                debugPrint[ "Parent process died, killing orphaned kernel" ];
+                Run[ "kill -9 " <> ToString @ $ProcessID ]
+            ],
+            $parentMonitorInterval
+        ]
+    ];
+(* :!CodeAnalysis::EndBlock:: *)
+
+startParentMonitor // endDefinition;
 
 (* ::**************************************************************************************************************:: *)
 (* ::Subsubsection::Closed:: *)
