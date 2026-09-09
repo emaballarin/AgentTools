@@ -576,6 +576,7 @@ Include these environment variables for proper operation:
 | `WOLFRAM_CLOUDBASE` | Set to a cloud base URL (e.g. `"https://www.test.wolframcloud.com"`) to override `$CloudBase` for the server session; cloud URLs in [MCP Apps](mcp-apps.md) assets are rewritten to match (optional, primarily for internal purposes) |
 | `LLMKIT_ENABLED` | Set to `"false"` to make the context tools (`WolframContext`, etc.) behave as if the user has no LLMKit subscription, without emitting subscription warnings (optional) |
 | `MCP_TOOL_OPTIONS` | JSON string of tool option overrides, set automatically by `"ToolOptions"` (optional) |
+| `SUBMIT_USAGE_DATA` | Set to `"false"` to opt out of [usage data](usage-data.md) collection (or `"true"` to opt a custom server in); set automatically by `"SubmitUsageData"` (optional) |
 
 ### Getting the Configuration
 
@@ -608,6 +609,37 @@ This is useful for testing local changes without reinstalling the paclet:
 ```wl
 InstallMCPServer["ClaudeCode", "DevelopmentMode" -> True]
 ```
+
+### WolframCommand
+
+Overrides the executable written to the `command` field of the client configuration:
+
+| Value | Behavior |
+|-------|----------|
+| `Automatic` (default) | The `wolfram` executable inside `$InstallationDirectory` for the current operating system |
+| `"path/to/executable"` | Written verbatim as the `command` field |
+
+This lets a client launch a standalone executable or wrapper script instead of the local Wolfram kernel. Pair it with `"CommandLineArguments"` when that executable does not accept the default kernel arguments:
+
+```wl
+InstallMCPServer["ClaudeCode", "WolframLanguage",
+    "WolframCommand"       -> "/usr/local/bin/wolfram-mcp",
+    "CommandLineArguments" -> {}
+]
+```
+
+Any other value fails with `InstallMCPServer::InvalidWolframCommand`.
+
+### CommandLineArguments
+
+Overrides the argument list written to the `args` field of the client configuration:
+
+| Value | Behavior |
+|-------|----------|
+| `Automatic` (default) | The standard kernel arguments that start the server: `-run "PacletSymbol[...][]" -noinit -noprompt` |
+| `{"arg1", "arg2", ...}` | Written verbatim as the `args` field; an empty list is allowed |
+
+The value must be a list of strings — MCP clients expect `args` to be a JSON array, so a single string fails with `InstallMCPServer::InvalidCommandLineArguments`. A non-`False` `"DevelopmentMode"` replaces the arguments with its own, so it takes precedence over this option.
 
 ### ProcessEnvironment
 
@@ -676,6 +708,22 @@ This option works with both `InstallMCPServer` and `UninstallMCPServer`. When un
 (* Uninstall the "WolframDev" entry that was installed with a custom name *)
 UninstallMCPServer["ClaudeDesktop", "WolframLanguage", "MCPServerName" -> "WolframDev"]
 ```
+
+### SubmitUsageData
+
+Controls whether the installed server collects and submits [usage data](usage-data.md) — which MCP client is used, which tools and prompts are called, and whether each call succeeded, together with the product identity information of the Wolfram installation (license, machine ID, product, release, and so on), but never any content:
+
+| Value | Behavior |
+|-------|----------|
+| `Automatic` (default) | Nothing is added to the configuration; the server's `"EnableUsageData"` property decides, so built-in servers collect usage data (unless it has been turned off globally with the preferences panel's checkbox) and custom servers do not |
+| `False` | Opts out; sets `SUBMIT_USAGE_DATA=false` in the server environment |
+| `True` | Opts in even for a custom server; sets `SUBMIT_USAGE_DATA=true` |
+
+```wl
+InstallMCPServer["ClaudeCode", "WolframLanguage", "SubmitUsageData" -> False]
+```
+
+The system preferences panel's checkbox turns usage data off for every built-in server installation on the machine at once — a global setting that each server reads when it starts, so nothing needs to be re-installed — while an explicit `"SubmitUsageData"` value still takes precedence (see [preferences-content.md](preferences-content.md)).
 
 ### ToolOptions
 

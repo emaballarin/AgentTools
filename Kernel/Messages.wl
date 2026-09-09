@@ -97,6 +97,13 @@ AgentTools::UnrecognizedToolOption         = "Warning: Unrecognized tool name in
 AgentTools::UnrecognizedToolOptionName     = "Warning: Unrecognized option \"`1`\" for tool \"`2`\" in ToolOptions.";
 AgentTools::InvalidToolOptionValue         = "Warning: Invalid value for tool \"`1`\" in ToolOptions: `2`. Expected an Association. This entry will be ignored.";
 
+(* Usage data messages *)
+AgentTools::InvalidSubmitUsageData         = "Invalid value for SubmitUsageData option: `1`. Expected True, False, or Automatic.";
+
+(* Client configuration messages *)
+AgentTools::InvalidWolframCommand          = "Invalid value for WolframCommand option: `1`. Expected a string or Automatic.";
+AgentTools::InvalidCommandLineArguments    = "Invalid value for CommandLineArguments option: `1`. Expected a list of strings or Automatic.";
+
 (* Cloud deployment messages *)
 AgentTools::CloudDeployFailed              = "Failed to deploy MCP server to the cloud: `1`.";
 AgentTools::NotCloudConnected              = "A cloud connection is required to deploy an MCP server. Use CloudConnect to sign in.";
