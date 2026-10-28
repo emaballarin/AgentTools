@@ -30,7 +30,7 @@ A Wolfram Language toolkit for integrating with AI agents and LLMs — providing
 - **MCP prompts** for enhanced context and workflows
 - **MCP Apps** for interactive UI resources in supported clients (e.g., embedded notebook viewers, Wolfram\|Alpha result displays)
 - **MCP Roots** support so the server, evaluator, and external tools (`TestReport` and similar) resolve relative paths against the client's project directory
-- **Agent Skills** for distributing Wolfram tools as portable skills to AI coding agents (Claude Code, Cursor, Gemini CLI, VS Code, and [more](https://agentskills.io/))
+- **Agent Skills** for distributing Wolfram tools as portable skills to AI coding agents (Claude Code, Cursor, Gemini CLI, VS Code, and [more](https://agentskills.io/)); the built-in skills (wolfram-language, wolfram-alpha, wolfram-notebooks, wolfram-paclets, wolfram-debugging) ship with the paclet, and `DeployAgentTools` installs them together with the matching MCP server
 - **Paclet extensions** allowing third-party paclets to contribute MCP tools, prompts, and servers via the `"AgentTools"` extension
 - **Docker image** for running the MCP server in a container without a local Wolfram Engine installation
 
@@ -228,6 +228,10 @@ While only `WolframAlphaContext` *requires* an [LLMKit subscription](https://www
 
 > **Note:** MCP Apps tools require a client that supports the `io.modelcontextprotocol/ui` extension. When UI support is available, the `WolframAlpha` and `WolframLanguageEvaluator` tools are automatically enhanced with interactive notebook viewers. See [docs/mcp-apps.md](docs/mcp-apps.md) for details.
 
+### License Tools
+
+- **WolframLicenseStatus** - Report the status of the standalone MCP server's time-limited license (added automatically to servers running under one)
+
 See [docs/tools.md](docs/tools.md) for detailed information about each tool.
 
 ## Creating Custom Servers
@@ -277,9 +281,12 @@ CreateMCPServer["My MCP Server", <|
 | `InstallMCPServer[client, server]` | Install a specific server for a client |
 | `UninstallMCPServer[client]` | Remove all servers from a client |
 | `UninstallMCPServer[client, name]` | Remove a specific server from a client |
-| `DetectedMCPClients[]` | Subset of `$SupportedMCPClients` whose config file exists on this machine |
+| `DetectedMCPClients[]` | Subset of `$SupportedClients` whose MCP config file exists on this machine |
 | `DeployAgentTools[target]` | Deploy tools to a client with tracked deployment management |
-| `DeployAgentTools[All]` | Deploy tools to every client in `$SupportedMCPClients` (see [docs/deploy-agent-tools.md](docs/deploy-agent-tools.md#deploying-to-all-clients)) |
+| `DeployAgentTools[target, tools]` | Deploy a bundle of MCP servers and agent skills (an `AgentToolsObject` or its name) to a client (see [docs/agent-tools-objects.md](docs/agent-tools-objects.md)) |
+| `InstallAgentSkills[client, skills]` | Copy agent skills into a client's skills directory (untracked) |
+| `UninstallAgentSkills[client, names]` | Remove agent skills from a client's skills directory (untracked) |
+| `DeployAgentTools[All]` | Deploy tools to every client in `$SupportedClients` (see [docs/deploy-agent-tools.md](docs/deploy-agent-tools.md#deploying-to-all-clients)) |
 | `ValidateAgentToolsPacletExtension[paclet]` | Validate an `"AgentTools"` paclet extension |
 | `DeployedAgentTools[]` | List all tracked deployments |
 | `CreatePreferencesContent[]` | Build the preferences panel UI for managing deployed Wolfram toolsets (see [docs/preferences-content.md](docs/preferences-content.md)) |
@@ -291,6 +298,14 @@ CreateMCPServer["My MCP Server", <|
 | `AgentToolsDeployment[...]` | Data structure representing a tracked tool deployment |
 | `DeployedAgentTools[]` | List all deployments |
 | `DeployedAgentTools[client]` | List deployments for a specific client |
+
+### Agent Tools Bundles
+
+| Symbol | Description |
+|--------|-------------|
+| `AgentToolsObject[...]` | A bundle of MCP servers and agent skills (built-in, paclet-defined, or ad hoc) |
+| `AgentToolsObjects[]` | List the bundles of installed paclets |
+| `$DefaultAgentTools` | The built-in bundles, one per built-in MCP server, each with its built-in agent skills |
 
 ### Server Objects
 

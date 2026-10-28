@@ -110,6 +110,12 @@ $DefaultMCPTools = <|
 
 > **Note:** When a client supports the `io.modelcontextprotocol/ui` extension, the `WolframAlpha` and `WolframLanguageEvaluator` tools are automatically enhanced with UI capabilities (e.g., deploying cloud notebooks and returning `_meta` with `notebookUrl`). See [mcp-apps.md](mcp-apps.md) for details.
 
+#### License Tools
+
+| Tool | Description | Server |
+|------|-------------|--------|
+| `WolframLicenseStatus` | Reports the status of the standalone MCP server's time-limited license: expiration date, days remaining, and instructions URL | (available, not in default servers; added automatically under a [time-limited license](#environment-specific-overrides)) |
+
 ## Tool Definition Format
 
 ### Structure
@@ -405,6 +411,8 @@ Overrides replace whole properties (e.g. the entire `"Parameters"` list); `<| |>
 
 Two further exported symbols describe the product rather than the transport: `$StandaloneMCPServer` is `True` when the kernel is the standalone MCP server product (a kernel that only runs the MCP server, without a full Mathematica installation), and `$StandaloneMCPServerInformation` holds the information that product publishes about itself. Both are set by the standalone application and are `False` and `<| |>` everywhere else; see [usage-data.md](usage-data.md#standalone-mcp-server).
 
+The standalone product runs under its own time-limited license, which the standalone application describes with keys of `$StandaloneMCPServerInformation`: `"ExpirationDate"`, `"Expired"`, `"InstructionsURL"`, `"ProductName"`, and `"WarningDays"` (default 14). License handling is on only when `"Expired"` or `"ExpirationDate"` is present, and the license is read again on every request (`licenseStatus` in `Kernel/Tools/LicenseStatus.wl`). With a license, the server appends the license status to the `initialize` instructions, adds the `WolframLicenseStatus` tool unless the server already lists it, fails every other tool call with an error result (without running the tool) and every prompt request with a JSON-RPC error once the license has expired, and appends a reminder to every other tool result while the days remaining are at most `"WarningDays"`. The standalone application detects license support with `KeyExistsQ[$DefaultMCPTools, "WolframLicenseStatus"]`, so the tool must keep that name and stay in `$DefaultMCPTools`. See [Specs/StandaloneLicense.md](../Specs/StandaloneLicense.md) for details.
+
 ## Tool Output Format
 
 Tools must return strings. For structured output, use consistent formats:
@@ -527,6 +535,14 @@ The evaluator's optional `session` parameter gives each conversation an isolated
 `$UserBaseDirectory/ApplicationData/Wolfram/AgentTools/Sessions/` after every call, so they survive
 server restarts, and every result ends with a reminder of the session ID to pass on subsequent calls.
 
+With Chatbook 2.7.28+, each top-level input of the code gets its own line number, as in an interactive
+kernel session (`1 + 1` and `2 + 2` on separate lines give `Out[1]= 2` and `Out[2]= 4`), so one call can
+use up several lines. Chatbook reports the line number for the next input (the `"Line"` property of
+`WolframLanguageToolEvaluate`), and the session continues from there. Session bookkeeping in the `"Local"`
+eval kernel is evaluated with `"Line" -> None`, so it uses no line number and stays out of the In/Out
+history. Older Chatbook versions evaluate the code as a single input, so the line number advances by one
+per call.
+
 Under the `"Cloud"` method each call runs in a fresh, non-persistent cloud kernel, so only a session's
 **global definitions** persist: Chatbook 2.7.11+ returns the evaluator kernel's `` Global` `` definitions
 after each call as an MX byte array (`Wolfram`Chatbook`$CloudSessionMX`), which AgentTools stores in
@@ -582,6 +598,7 @@ InstallMCPServer[
 - `Kernel/Tools/SymbolDefinition.wl` - Symbol definition lookup tool
 - `Kernel/Tools/Notebooks.wl` - ReadNotebook and WriteNotebook tools
 - `Kernel/Tools/TestReport.wl` - Test runner tool
+- `Kernel/Tools/LicenseStatus.wl` - WolframLicenseStatus tool and the standalone MCP server's license status (`licenseStatus`, `licenseInstructions`)
 - `Kernel/Tools/CodeInspector/` - Code inspection tool
 - `Kernel/Tools/PacletDocumentation/` - Documentation editing tools
 - `Kernel/Tools/PacletTools/` - Paclet check/build/submit tools
@@ -598,4 +615,4 @@ InstallMCPServer[
 - `Tests/ToolOptions.wlt` - Tests for tool options system
 - `Specs/ToolOptions.md` - Design specification for tool options
 - `AgentSkills/Manifest.wl` - Maps tools to distributable agent skills (see [agent-skills.md](agent-skills.md))
-- `Scripts/BuildAgentSkills.wls` - Generates standalone `.wls` scripts from tool definitions
+- `Scripts/BuildAgentSkills.wls` - Generates standalone `.wls` scripts from tool definitions and writes the built skills to `Assets/AgentSkills/` (rebuild and commit after changing a tool that a skill uses; `Tests/AgentSkillsBuild.wlt` fails when the built skills are stale)
